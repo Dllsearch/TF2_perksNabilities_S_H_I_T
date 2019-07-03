@@ -3,62 +3,64 @@
 #include <sdktools_hooks>
 #include <tf2>
 #include <tf2_stocks>
+#include <adt_array>
+
 public Plugin:myinfo = 
 {
 	name = "Perks&Abilities for everyone",
 	author = "Dllsearch",
 	description = "<- Description ->",
-	version = "0.0.1",
+	version = "0.0.2",
 	url = "<- URL ->"
-}
+} // угадай))
 
 enum perks {
-	civilian,
-	rager,
-	runner,
-	spamer,
-	tank,
-	snake,
-	agent
-};
+	civilian, // Тип не выбранный перк
+	rager, // Ярость
+	runner, // Бегун
+	spamer, // Спаммер
+	tank, // ТААААНК
+	snake, //GAME OVER (Snake. Snake? SNAAAAAKE!!!)
+	agent // будет первым пассивным билдом, пока думаю логику
+}; // список билдов
 
-int pnd_AbilityPoints[MAXPLAYERS + 1] = {0, ...};
-perks pnd_Abilities[MAXPLAYERS + 1] = {0, ...};
+int pnd_AbilityPoints[MAXPLAYERS + 1] = {0, ...}; //массив, хранящий уровень заряда игроков
+perks pnd_Abilities[MAXPLAYERS + 1] = {0, ...}; //массив, хранящий номер билда абилки игроков
 
-ConVar pnd_abl_chrg_k;
-ConVar pnd_abl_chrg_t;
+ConVar pnd_abl_chrg_k; // Консольная переменная, коэфф. зарядки перка
+ConVar pnd_abl_chrg_t; // Консольная переменная, коэфф. зарядки перка по времени, пока не пашет
 // ConVar pnd_abl_num;
 
-public void OnPluginStart()
+public void OnPluginStart() //при старте
 {
-	HookEvent("player_hurt", charger);
-	pnd_abl_chrg_k = CreateConVar("pnd_abl_chrg_k", "5", "Coefficient of taking ability points");
-	pnd_abl_chrg_t = CreateConVar("pnd_abl_chrg_t", "1", "Amount of ability points per second");
+	HookEvent("player_hurt", charger); //Ставим чекалку на хит
+	pnd_abl_chrg_k = CreateConVar("pnd_abl_chrg_k", "3", "Coefficient of taking ability points"); //делаем в консоль переменную, и чекаем её
+	pnd_abl_chrg_t = CreateConVar("pnd_abl_chrg_t", "1", "Amount of ability points per second"); //тож
 	// pnd_abl_num = CreateConVar("pnd_abl_num", "0", "Description");
 	
-	RegConsoleCmd("pna_ability_use", useAbility);
+	RegConsoleCmd("pna_ability_use", useAbility); // Чекаем комманду юзанья абилки в консось
 	
 	//RegConsoleCmd("pna_ability_new", setAbility);
 	
-	RegConsoleCmd("perks", perkDeckPanel);
+	RegConsoleCmd("perks", perkDeckPanel); // Чекаем комманду запроса смены перка в консоль
 	
 }
 
-public void OnClientPutInServer(int client)
+public void OnClientPutInServer(int client) //когда игрока ПУТИС на сервер
 {
-	pnd_AbilityPoints[client] = 0;
-	pnd_Abilities[client] = 0;
-	perkDeckPanel(client, 0);
+	pnd_AbilityPoints[client] = 0; // Прописываем 0 очкв абилки нвому юзеру
+	pnd_Abilities[client] = 0; // И 0й перк (знчт, что не выбирал)
+	perkDeckPanel(client, 0); // Если только присоединился, предлагаем выбрать перк
 }
 
-public OnClientConnected(int client)
+public OnClientConnected(int client) //Когда есть контакт, но я не юзаю (пока)
 {
 	
 }
  
  /// --- /// --- /// --- ///
  
-public int perkDeckPanelHandler(Menu menu, MenuAction action, int client, int ablt)
+public int perkDeckPanelHandler(Menu menu, MenuAction action, int client, int ablt) // Чекаем, какой билд выбрали
 {
 	if (action == MenuAction_Select)
 	{
@@ -71,7 +73,7 @@ public int perkDeckPanelHandler(Menu menu, MenuAction action, int client, int ab
 	}
 }
  
-public Action perkDeckPanel(int client, int args)
+public Action perkDeckPanel(int client, int args) // Рисуем менюшку выбора готовых перков
 {
 	Panel panel = new Panel();
 	panel.SetTitle("Choose your deck:");
@@ -91,7 +93,7 @@ public Action perkDeckPanel(int client, int args)
 
 /// --- /// --- /// --- ///
 
-public Action useAbility(int client, int args)
+public Action useAbility(int client, int args) //Вызывается при pna_use_ability
 {
 	char arg[128];
 	char full[256];
@@ -113,77 +115,84 @@ public Action useAbility(int client, int args)
 		PrintToServer("Argument %d: %s", i, arg);
 	}
 	
-	if ( pnd_AbilityPoints[client] == 100 )
+	if ( pnd_AbilityPoints[client] == 100 ) // Если абилка заряжена
 	{
+		// Перебор и вызов абилк. SWITCH тут глючит пздц, так что, пришлось делать через if else
 		pnd_AbilityPoints[client] = 0;
-		if (pnd_Abilities[client] == 1) frager(client);
-		else if (pnd_Abilities[client] == 2) frunner(client);
+		if (pnd_Abilities[client] == 0) perkDeckPanel(client, 0); // если перк 0 (не выбирал), то предлагаем выбрать
+		else if (pnd_Abilities[client] == 1) frager(client); //юзает перк
+		else if (pnd_Abilities[client] == 2) frunner(client); //same
 		else if (pnd_Abilities[client] == 3) fspamer(client);
 		else if (pnd_Abilities[client] == 4) ftank(client);
 		else if (pnd_Abilities[client] == 5) fsnake(client);
-		PrintToChat(client, "ABILITY USED"); 
+		PrintToChat(client, "ABILITY USED"); // QUAD DAMAGE нахуй
 	}
-	else 
+	else //если ещё не заряжена, пишет 
 	{
-		PrintToChat(client, "%d%% charged", pnd_AbilityPoints[client]);
+		PrintToChat(client, "%d%% charged", pnd_AbilityPoints[client]); //сколько заряда в чат
 	}
 	
-	return Plugin_Handled;
+	return Plugin_Handled; //сообщает, что отработал
 } 
 
-public void frager(int client)
+public void frager(int client) //готовый абилкосет
 {
 	int conds[4] = {19, 26, 29, 60};
-	pna_addcond (conds, client, 17.50, 4);
+	int limits = sizeof(conds);
+	pna_addcond (conds, client, 17.50, limits);
 	pnd_AbilityPoints[client] = 53;
 }
 
-public void frunner(int client)
+public void frunner(int client) //готовый абилкосет
 {
 	int conds[3] = {26, 42, 72};
-	pna_addcond (conds, client, 7.50,3);
+	int limits = sizeof(conds);
+	pna_addcond (conds, client, 7.50, limits);
 	pnd_AbilityPoints[client] = 88;
 }
 
-public void fspamer(int client)
+public void fspamer(int client) //готовый абилкосет
 {
 	int conds[3] = {16, 72, 91};
-	pna_addcond (conds, client, 15.00,3);
+	int limits = sizeof(conds);
+	pna_addcond (conds, client, 15.00, limits);
 	pnd_AbilityPoints[client] = 35;
 }
 
-public void ftank(int client)
+public void ftank(int client) //готовый абилкосет
 {
 	int conds[7] = {26, 42, 61, 62, 63, 73, 93};
-	pna_addcond (conds, client, 30.00, 7);
+	int limits = sizeof(conds);
+	pna_addcond (conds, client, 30.00, limits);
 	pnd_AbilityPoints[client] = 0;
 }
 
-public void fsnake(int client)
+public void fsnake(int client) //готовый абилкосет
 {
-	int conds[4] = {19, 26, 29, 60};
-	pna_addcond (conds, client, 8.00,4);
+	int conds[4] = {32, 66};
+	int limits = sizeof(conds);
+	pna_addcond (conds, client, 8.00, limits);
 	pnd_AbilityPoints[client] = 75;
 }
 
-public charger(Event hEvent, const char[] name, bool dontBroadcast)
+public charger(Event hEvent, const char[] name, bool dontBroadcast) //функция, вызываемая, когда кто-то кого-то бьёт
 {
 	//int client = GetClientOfUserId(hEvent.GetInt("userid"));
 	int attacker = GetClientOfUserId(hEvent.GetInt("attacker"));
 	damage_charger(attacker, pnd_abl_chrg_k.IntValue);
 }
 
-public void damage_charger(int client, int points)
+public void damage_charger(int client, int points) //Зарядка ударами
 {
-	for (int x = 0; (x < points) && (pnd_AbilityPoints[client] != 100); x++)
+	for (int x = 0; (x < points) && (pnd_AbilityPoints[client] != 100); x++) // Зарядка абилки до 100%
 	{
 		pnd_AbilityPoints[client] += 1;
 	}
 	if ((client != 0) && ((pnd_AbilityPoints[client] == 50) || (pnd_AbilityPoints[client] == 70) || (pnd_AbilityPoints[client] == 90))) PrintToChat(client, "#%d ability %i %% charged",pnd_Abilities, pnd_AbilityPoints[client]);
-	if ((pnd_AbilityPoints[client] == 100) && (client != 0)) PrintToChat(client, "ABILITY READY !!!");
+	if ((pnd_AbilityPoints[client] == 99) && (client != 0)) PrintToChat(client, "ABILITY READY !!!");
 }
 
-public void time_charger() //TODO
+public void time_charger() //TODO должна быть зарядка по таймеру
 {
 	for (int i = 0; i <= MAXPLAYERS ; i++)
 	{
@@ -192,6 +201,7 @@ public void time_charger() //TODO
 }
 
 
+// Список состояний, аналогичный addcond, неточный, нестабильный, чистить
 TFCond tfca[128] = {
 	TFCond_Slowed,
 	TFCond_Zoomed,
@@ -327,22 +337,22 @@ TFCond tfca[128] = {
 	TFCond_AirCurrent
 }
 
-public pna_addcond (int[] conds, int client, float time, int count)
+public pna_addcond (int[] conds, int client, float time, int length) //функция, добавляющая кондишны, указаные в массиве
 {
 	int c = 0;
-	while ((conds[c] != 300) && (c <= count)/*&& (conds[c] != null)*/)
+	while (c < length)
 	{
-		TF2_AddCondition(client, tfca[conds[c]/*c*/], time, 0);
-		//TF2_AddCondition(client, tfca[/*conds[c]*/c], time, client);
+		TF2_AddCondition(client, tfca[conds[c]], time, 0);
 		c++;
 	}
 }
 
-public pna_removecond (int[] conds, int client)
+public pna_removecond (int[] conds, int client, int length) //убирает состояния по аналогии
 {
 	int c = 0;
-	while ((conds[c] != 300) /* && (conds[c] != null) */)
+	while (c < length)
 	{
 		TF2_RemoveCondition(client, tfca[conds[c]]);
+		c++;
 	}
 }
