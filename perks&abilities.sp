@@ -11,7 +11,7 @@ public Plugin:myinfo =
 	name = "Perks&Abilities for everyone",
 	author = "Dllsearch",
 	description = "S T O N K S",
-	version = "0.0.4",
+	version = "0.0.5",
 	url = "ntaddv.space"
 } // угадай))
 
@@ -28,7 +28,6 @@ enum perkdecks {
 
 float pnd_AbilityPoints[MAXPLAYERS + 1] = {0, ...}; //массив, хранящий уровень заряда игроков
 perkdecks pnd_Abilities[MAXPLAYERS + 1] = {0, ...}; //массив, хранящий номер билда абилки игроков
-bool pnd_AbilityChargedInformed[MAXPLAYERS + 1] = {1, ...}; // Массив для пометки, проинформирован ли игрок о 100% заряде
 
 
 ConVar pnd_abl_chrg_k; // Консольная переменная, коэфф. зарядки перка
@@ -38,8 +37,8 @@ ConVar pnd_abl_chrg_t; // Консольная переменная, коэфф. зарядки перка по времени
 public void OnPluginStart() //при старте
 {
 	HookEvent("player_hurt", charger); //Ставим чекалку на хит
-	pnd_abl_chrg_k = CreateConVar("pnd_abl_chrg_k", "2.280", "Coefficient of taking ability points", _, true, 0.10, true, 100.00); //делаем в консоль переменную
-	pnd_abl_chrg_t = CreateConVar("pnd_abl_chrg_t", "0.42", "Coefficient of taking ability points", _, true, 0.10, true, 100.00); //другая переменная
+	pnd_abl_chrg_k = CreateConVar("pnd_abl_chrg_k", "1.42", "Coefficient of taking ability points", _, true, 0.00, true, 100.00); //делаем в консоль переменную
+	pnd_abl_chrg_t = CreateConVar("pnd_abl_chrg_t", "0.42", "Coefficient of taking ability points", _, true, 0.00, true, 100.00); //другая переменная
 	// pnd_abl_num = CreateConVar("pnd_abl_num", "0", "Description");
 	
 	HookConVarChange(pnd_abl_chrg_k, conVarKChanged); // Реагируем на изменение переменной
@@ -87,7 +86,7 @@ public OnClientConnected(int client) //Когда есть контакт, но я не юзаю (пока)
 	if (IsClientConnected(client) && IsClientInGame(client)) // если игрок играет
 	{
 		
-		SetHudTextParams(0.2, 0.6, 0.95, 255, 255, 255, 255, 2, 3.0, 0.1, 0.02); // Выставляем положение, время, цвет, эффект, время эффектов для текста
+		SetHudTextParams(0.03, 0.07, 0.95, 255, 255, 255, 255, 2, 1.0, 0.03, 0.01); // Выставляем положение, время, цвет, эффект, время эффектов для текста
 		char ses[5];
 		FloatToString(pnd_AbilityPoints[client], ses, 5);
 		ShowHudText(client, -1, "PNA %s %%", ses); // Рисуем текст
@@ -155,7 +154,7 @@ public Action useAbility(int client, int args) //Вызывается при pna_use_ability
 	if ( pnd_AbilityPoints[client] == 100.00 ) // Если абилка заряжена
 	{
 		// Перебор и вызов абилк. SWITCH тут глючит пздц, так что, пришлось делать через if else
-		pnd_AbilityPoints[client] = 0.00;
+		//pnd_AbilityPoints[client] = 0.00;
 		if (pnd_Abilities[client] == 0) 
 			{
 				perkDeckPanel(client, 0); // если перк 0 (не выбирал), то предлагаем выбрать
@@ -177,7 +176,9 @@ public Action useAbility(int client, int args) //Вызывается при pna_use_ability
 	}
 	else //если ещё не заряжена, пишет 
 	{
-		PrintToChat(client, "ABILITY: %f%% charged", pnd_AbilityPoints[client]); //сколько заряда в чат
+		char ses[5];
+		FloatToString(pnd_AbilityPoints[client], ses, 5);
+		PrintToChat(client, "ABILITY: %s%% charged", ses); //сколько заряда в чат
 	}
 	
 	return Plugin_Handled; //сообщает, что отработал
@@ -234,31 +235,15 @@ public charger(Event hEvent, const char[] name, bool dontBroadcast) //функция, в
 public void damage_charger(int client, float points) //Зарядка ударами
 {
 	// Сейчас идёт перебор по классу игрока. Если еслт совпатение - количество зарядов умножается на коэффициент для класса
-	if ( (TF2_GetPlayerClass(client) == TFClass_Pyro) ) points *= 0.42; // Если игрок пиро, то 42% от К
-	else if (
-	(TF2_GetPlayerClass(client) == TFClass_Heavy)
-	||
-	(TF2_GetPlayerClass(client) == TFClass_Engineer)
-	) // Еслли игрок Хуви или Инж, 80% от К
-	points *= 0.80;
-	else if (
-	(TF2_GetPlayerClass(client) == TFClass_Soldier)
-	||
-	(TF2_GetPlayerClass(client) == TFClass_DemoMan)
-	) // Если игрок Солд или Демо, 85%
-	points *= 0.85;
-	else if (
-	(TF2_GetPlayerClass(client) == TFClass_Sniper)
-	||
-	(TF2_GetPlayerClass(client) == TFClass_Scout)
-	) // Если снайпер или скот, 120%
-	points *= 1.20;
-	else if (
-	(TF2_GetPlayerClass(client) == TFClass_Medic)
-	||
-	(TF2_GetPlayerClass(client) == TFClass_Spy)
-	) // Если медик или шпик, 146% голосов ))))
-	points *= 1.46;
+	if (TF2_GetPlayerClass(client) == TFClass_Pyro) points *= 0.42; // Если игрок пиро, то 42% от К
+	else if (TF2_GetPlayerClass(client) == TFClass_Heavy) points *= 0.73;// Если игрок Хуви 80% от К
+	else if (TF2_GetPlayerClass(client) == TFClass_Engineer) points *= 0.80;// Если игрок Инж, 85% от К
+	else if (TF2_GetPlayerClass(client) == TFClass_DemoMan) points *= 0.85; // итд
+	else if (TF2_GetPlayerClass(client) == TFClass_Soldier) points *= 0.90;
+	else if (TF2_GetPlayerClass(client) == TFClass_Sniper) points *= 1.10;
+	else if (TF2_GetPlayerClass(client) == TFClass_Scout) points *= 1.15;
+	else if (TF2_GetPlayerClass(client) == TFClass_Medic) points *= 1.20;
+	else if (TF2_GetPlayerClass(client) == TFClass_Spy) points *= 1.60;
 	/// --- ///
 	pnd_AbilityPoints[client] += points; // Складываем поинты
 	if (pnd_AbilityPoints[client] > 100.00) pnd_AbilityPoints[client] = 100.00; // Если получилось >100%, делаем 100
