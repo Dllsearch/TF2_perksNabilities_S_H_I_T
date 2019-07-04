@@ -1,6 +1,7 @@
 #include <sourcemod>
 #include <sdktools>
 #include <sdktools_hooks>
+#include <timers>
 #include <tf2>
 #include <tf2_stocks>
 #include <adt_array>
@@ -10,22 +11,25 @@ public Plugin:myinfo =
 	name = "Perks&Abilities for everyone",
 	author = "Dllsearch",
 	description = "<- Description ->",
-	version = "0.0.2",
+	version = "0.0.3",
 	url = "<- URL ->"
 } // угадай))
 
-enum perks {
+enum perkdecks {
 	civilian, // Тип не выбранный перк
 	rager, // Ярость
 	runner, // Бегун
 	spamer, // Спаммер
 	tank, // ТААААНК
 	snake, //GAME OVER (Snake. Snake? SNAAAAAKE!!!)
-	agent // будет первым пассивным билдом, пока думаю логику
+	agent, // будет первым пассивным билдом, пока думаю логику
+	user //собственный билд игрока
 }; // список билдов
 
-int pnd_AbilityPoints[MAXPLAYERS + 1] = {0, ...}; //массив, хранящий уровень заряда игроков
-perks pnd_Abilities[MAXPLAYERS + 1] = {0, ...}; //массив, хранящий номер билда абилки игроков
+float pnd_AbilityPoints[MAXPLAYERS + 1] = {0, ...}; //массив, хранящий уровень заряда игроков
+perkdecks pnd_Abilities[MAXPLAYERS + 1] = {0, ...}; //массив, хранящий номер билда абилки игроков
+bool pnd_AbilityChargedInformed[MAXPLAYERS + 1] = {1, ...}; // Массив для пометки, проинформирован ли игрок о 100% заряде
+
 
 ConVar pnd_abl_chrg_k; // Консольная переменная, коэфф. зарядки перка
 ConVar pnd_abl_chrg_t; // Консольная переменная, коэфф. зарядки перка по времени, пока не пашет
@@ -34,9 +38,13 @@ ConVar pnd_abl_chrg_t; // Консольная переменная, коэфф. зарядки перка по времени
 public void OnPluginStart() //при старте
 {
 	HookEvent("player_hurt", charger); //Ставим чекалку на хит
-	pnd_abl_chrg_k = CreateConVar("pnd_abl_chrg_k", "3", "Coefficient of taking ability points"); //делаем в консоль переменную, и чекаем её
-	pnd_abl_chrg_t = CreateConVar("pnd_abl_chrg_t", "1", "Amount of ability points per second"); //тож
+	pnd_abl_chrg_k = CreateConVar("pnd_abl_chrg_k", "3.75", "Coefficient of taking ability points", _, true, 0.10, true, 100.00); //делаем в консоль переменную
+	pnd_abl_chrg_t = CreateConVar("pnd_abl_chrg_t", "1.25", "Coefficient of taking ability points", _, true, 0.10, true, 100.00); //другая переменная
 	// pnd_abl_num = CreateConVar("pnd_abl_num", "0", "Description");
+	
+	HookConVarChange(pnd_abl_chrg_k, conVarKChanged); // Реагируем на изменение переменной
+	HookConVarChange(pnd_abl_chrg_k, conVarTChanged); // вторая
+	
 	
 	RegConsoleCmd("pna_ability_use", useAbility); // Чекаем комманду юзанья абилки в консось
 	
@@ -46,21 +54,47 @@ public void OnPluginStart() //при старте
 	
 }
 
-public void OnClientPutInServer(int client) //когда игрока ПУТИС на сервер
+public void OnClientPutInServer(int client) //когда игрок входит на сервер
 {
 	pnd_AbilityPoints[client] = 0; // Прописываем 0 очкв абилки нвому юзеру
 	pnd_Abilities[client] = 0; // И 0й перк (знчт, что не выбирал)
 	perkDeckPanel(client, 0); // Если только присоединился, предлагаем выбрать перк
+	
+	CreateTimer (1.0, chargeHUD, client, TIMER_REPEAT );
+	///
+	CreateTimer (1.0, time_charger, client, TIMER_REPEAT );
 }
 
 public OnClientConnected(int client) //Когда есть контакт, но я не юзаю (пока)
 {
 	
 }
+
+ public conVarKChanged(ConVar convar, const char[] oldValue, const char[] newValue) // Вызывается, если ConVar попытались поменять
+ {
+ 	float next = StringToFloat(newValue);
+	SetConVarFloat(pnd_abl_chrg_k, next, true, true); // Меняем ConVar
+ }
+ 
+ public conVarTChanged(ConVar convar, const char[] oldValue, const char[] newValue) // Вызывается, если ConVar попытались поменять
+ {
+ 	float next = StringToFloat(newValue);
+	SetConVarFloat(pnd_abl_chrg_t, next, true, true); // Меняем ConVar
+ }
+ 
+ public Action chargeHUD (Handle timer, int client)  // вывод накопленного заряда на экран
+ {
+	if (IsClientConnected(client) && IsClientInGame(client)) // если игрок играет
+	{
+		
+		SetHudTextParams(0.3, 0.6, 0.95, 255, 255, 255, 255, 2, 6.0, 0.1, 0.02); // Выставляем положение, время, цвет, эффект, время эффектов для текста
+		ShowHudText(client, -1, "PNA %f %%", pnd_AbilityPoints[client]); // Рисуем текст
+	}
+ }
  
  /// --- /// --- /// --- ///
  
-public int perkDeckPanelHandler(Menu menu, MenuAction action, int client, int ablt) // Чекаем, какой билд выбрали
+public int perkDeckPanelHandler(Menu menu, MenuAction action, int client, int ablt) // Смотрим выбранный пункт меню
 {
 	if (action == MenuAction_Select)
 	{
@@ -82,9 +116,10 @@ public Action perkDeckPanel(int client, int args) // Рисуем менюшку выбора готов
 	panel.DrawItem("spamer");
 	panel.DrawItem("tank");
 	panel.DrawItem("snake");
-	panel.DrawItem("agent");
+	panel.DrawItem("agent (dont works)");
+	panel.DrawItem("Make your OWN perkdeck! (isnt workin too)");
  
-	panel.Send(client, perkDeckPanelHandler, 20);
+	panel.Send(client, perkDeckPanelHandler, 120);
  
 	delete panel;
  
@@ -115,21 +150,32 @@ public Action useAbility(int client, int args) //Вызывается при pna_use_ability
 		PrintToServer("Argument %d: %s", i, arg);
 	}
 	
-	if ( pnd_AbilityPoints[client] == 100 ) // Если абилка заряжена
+	if ( pnd_AbilityPoints[client] == 100.00 ) // Если абилка заряжена
 	{
 		// Перебор и вызов абилк. SWITCH тут глючит пздц, так что, пришлось делать через if else
-		pnd_AbilityPoints[client] = 0;
-		if (pnd_Abilities[client] == 0) perkDeckPanel(client, 0); // если перк 0 (не выбирал), то предлагаем выбрать
+		pnd_AbilityPoints[client] = 0.00;
+		if (pnd_Abilities[client] == 0) 
+			{
+				perkDeckPanel(client, 0); // если перк 0 (не выбирал), то предлагаем выбрать
+				pnd_AbilityPoints[client] = 100.00;
+			}
 		else if (pnd_Abilities[client] == 1) frager(client); //юзает перк
 		else if (pnd_Abilities[client] == 2) frunner(client); //same
 		else if (pnd_Abilities[client] == 3) fspamer(client);
 		else if (pnd_Abilities[client] == 4) ftank(client);
 		else if (pnd_Abilities[client] == 5) fsnake(client);
-		PrintToChat(client, "ABILITY USED"); // QUAD DAMAGE нахуй
+		else if (pnd_Abilities[client] == 6) perkDeckPanel(client, 0);
+		else if (pnd_Abilities[client] == 7) 
+		{
+			PrintToChat(client, "ISNT WORK, TRY OTHER DECKS"); // Пишем в чат, что абилка использована
+			pnd_AbilityPoints[client] = 100.00;
+			perkDeckPanel(client, 0);
+		}
+		PrintToChat(client, "ABILITY USED"); // Пишем в чат, что абилка использована
 	}
 	else //если ещё не заряжена, пишет 
 	{
-		PrintToChat(client, "%d%% charged", pnd_AbilityPoints[client]); //сколько заряда в чат
+		PrintToChat(client, "ABILITY: %f%% charged", pnd_AbilityPoints[client]); //сколько заряда в чат
 	}
 	
 	return Plugin_Handled; //сообщает, что отработал
@@ -140,102 +186,104 @@ public void frager(int client) //готовый абилкосет
 	int conds[4] = {19, 26, 29, 60};
 	int limits = sizeof(conds);
 	pna_addcond (conds, client, 17.50, limits);
-	pnd_AbilityPoints[client] = 53;
+	discharge(client, 56.00);
 }
 
 public void frunner(int client) //готовый абилкосет
 {
 	int conds[3] = {26, 42, 72};
 	int limits = sizeof(conds);
-	pna_addcond (conds, client, 7.50, limits);
-	pnd_AbilityPoints[client] = 88;
+	pna_addcond (conds, client, 6.50, limits);
+	discharge(client, 22.00);
 }
 
 public void fspamer(int client) //готовый абилкосет
 {
 	int conds[3] = {16, 72, 91};
 	int limits = sizeof(conds);
-	pna_addcond (conds, client, 15.00, limits);
-	pnd_AbilityPoints[client] = 35;
+	pna_addcond (conds, client, 13.33, limits);
+	discharge(client, 78.00);
 }
 
 public void ftank(int client) //готовый абилкосет
 {
 	int conds[7] = {26, 42, 61, 62, 63, 73, 93};
 	int limits = sizeof(conds);
-	pna_addcond (conds, client, 30.00, limits);
-	pnd_AbilityPoints[client] = 0;
+	pna_addcond (conds, client, 25.00, limits);
+	discharge(client, 100.00);
 }
 
 public void fsnake(int client) //готовый абилкосет
 {
 	int conds[4] = {32, 66};
 	int limits = sizeof(conds);
-	pna_addcond (conds, client, 8.00, limits);
-	pnd_AbilityPoints[client] = 75;
+	pna_addcond (conds, client, 7.00, limits);
+	discharge(client, 30.00);
 }
 
 public charger(Event hEvent, const char[] name, bool dontBroadcast) //функция, вызываемая, когда кто-то кого-то бьёт
 {
 	//int client = GetClientOfUserId(hEvent.GetInt("userid"));
 	int attacker = GetClientOfUserId(hEvent.GetInt("attacker"));
-	damage_charger(attacker, pnd_abl_chrg_k.IntValue);
+	damage_charger(attacker, pnd_abl_chrg_k.FloatValue);
 }
 
-public void damage_charger(int client, int points) //Зарядка ударами
+public void damage_charger(int client, float points) //Зарядка ударами
 {
-	for (int x = 0; (x < points) && (pnd_AbilityPoints[client] != 100); x++) // Зарядка абилки до 100%
-	{
-		pnd_AbilityPoints[client] += 1;
-	}
-	if ((client != 0) && ((pnd_AbilityPoints[client] == 50) || (pnd_AbilityPoints[client] == 70) || (pnd_AbilityPoints[client] == 90))) PrintToChat(client, "#%d ability %i %% charged",pnd_Abilities, pnd_AbilityPoints[client]);
-	if ((pnd_AbilityPoints[client] == 99) && (client != 0)) PrintToChat(client, "ABILITY READY !!!");
+	// Убрал цикл для оптимизации, похер на красоту
+	pnd_AbilityPoints[client] += points; 
+	if (pnd_AbilityPoints[client] > 100.00) pnd_AbilityPoints[client] = 100.00;
 }
 
-public void time_charger() //TODO должна быть зарядка по таймеру
+public void discharge(int client, float points) //Зарядка ударами
 {
-	for (int i = 0; i <= MAXPLAYERS ; i++)
-	{
-		if (IsClientInGame(i) && !IsFakeClient(i) && (pnd_AbilityPoints[i] != 100)) pnd_AbilityPoints[i] += pnd_abl_chrg_t.IntValue;
-	}
+	// Убрал цикл для оптимизации, похер на красоту
+	pnd_AbilityPoints[client] -= points; 
+	if (pnd_AbilityPoints[client] < 0.00) pnd_AbilityPoints[client] = 0.00;
+}
+
+public Action time_charger(Handle timer, int client) //зарядка по таймеру
+{
+	if (IsClientInGame(client) && !IsFakeClient(client) && (pnd_AbilityPoints[client] >= 100.00)) pnd_AbilityPoints[client] += pnd_abl_chrg_t.FloatValue;
+	if (pnd_AbilityPoints[client] > 100.00) pnd_AbilityPoints[client] = 100.00;
 }
 
 
 // Список состояний, аналогичный addcond, неточный, нестабильный, чистить
-TFCond tfca[128] = {
-	TFCond_Slowed,
+TFCond tfca[129] = {
+	TFCond_Slowed,	// 0
 	TFCond_Zoomed,
 	TFCond_Disguising,
 	TFCond_Disguised,
-	TFCond_Cloaked,
-	TFCond_Ubercharged,
+	TFCond_Cloaked,	
+	TFCond_Ubercharged, // 5
 	TFCond_TeleportedGlow,
 	TFCond_Taunting,
 	TFCond_UberchargeFading,
 	//TFCond_Unknown1,
-	TFCond_CloakFlicker,
-	TFCond_Teleporting,
+	TFCond_CloakFlicker, 
+	TFCond_Teleporting, // 10
 	TFCond_Kritzkrieged,
 	//TFCond_Unknown2,
 	TFCond_TmpDamageBonus,
 	TFCond_DeadRingered,
 	TFCond_Bonked,
-	TFCond_Dazed,
+	TFCond_Dazed, // 15
 	TFCond_Buffed,
 	TFCond_Charging,
 	TFCond_DemoBuff,
 	TFCond_CritCola,
-	TFCond_InHealRadius,
+	TFCond_InHealRadius, //20
 	TFCond_Healing,
 	TFCond_OnFire,
 	TFCond_Overhealed,
 	TFCond_Jarated,
-	TFCond_Bleeding,
+	TFCond_Bleeding, //25
 	TFCond_DefenseBuffed,
 	TFCond_Milked,
 	TFCond_MegaHeal,
 	TFCond_RegenBuffed,
-	TFCond_MarkedForDeath,
+	TFCond_MarkedForDeath, //30
 	TFCond_NoHealingDamageBuff,
 	TFCond_SpeedBuffAlly,
 	TFCond_HalloweenCritCandy,
@@ -245,7 +293,7 @@ TFCond tfca[128] = {
 	TFCond_CritOnFirstBlood,
 	TFCond_CritOnWin,
 	TFCond_CritOnFlagCapture,
-	TFCond_CritOnKill,
+	TFCond_CritOnKill, //40
 	TFCond_RestrictToMelee,
 	TFCond_DefenseBuffNoCritBlock,
 	TFCond_Reprogrammed,
@@ -255,7 +303,7 @@ TFCond tfca[128] = {
 	TFCond_DisguiseRemoved,
 	TFCond_MarkedForDeathSilent,
 	TFCond_DisguisedAsDispenser,
-	TFCond_Sapped,
+	TFCond_Sapped, //50
 	TFCond_UberchargedHidden,
 	TFCond_UberchargedCanteen,
 	TFCond_HalloweenBombHead,
@@ -265,7 +313,7 @@ TFCond tfca[128] = {
 	TFCond_UberchargedOnTakeDamage,
 	TFCond_UberBulletResist,
 	TFCond_UberBlastResist,
-	TFCond_UberFireResist,
+	TFCond_UberFireResist, //60
 	TFCond_SmallBulletResist,
 	TFCond_SmallBlastResist,
 	TFCond_SmallFireResist,
@@ -275,7 +323,7 @@ TFCond tfca[128] = {
 	TFCond_BulletImmune,
 	TFCond_BlastImmune,
 	TFCond_FireImmune,
-	TFCond_PreventDeath,
+	TFCond_PreventDeath, //70
 	TFCond_MVMBotRadiowave,
 	TFCond_HalloweenSpeedBoost,
 	TFCond_HalloweenQuickHeal,
@@ -285,7 +333,7 @@ TFCond tfca[128] = {
 	TFCond_HalloweenGhostMode,
 	TFCond_MiniCritOnKill,
 	TFCond_ObscuredSmoke, //TFCond_DodgeChance,
-	TFCond_Parachute,
+	TFCond_Parachute, //80
 	TFCond_BlastJumping,
 	TFCond_HalloweenKart,
 	TFCond_HalloweenKartDash,
@@ -295,7 +343,7 @@ TFCond tfca[128] = {
 	TFCond_FreezeInput, //TFCond_HalloweenKartNoTurn,
 	TFCond_HalloweenKartCage,
 	TFCond_HasRune,
-	TFCond_RuneStrength,
+	TFCond_RuneStrength, //90
 	TFCond_RuneHaste,
 	TFCond_RuneRegen,
 	TFCond_RuneResist,
@@ -305,7 +353,7 @@ TFCond tfca[128] = {
 	TFCond_RuneAgility,
 	TFCond_GrapplingHook,
 	TFCond_GrapplingHookSafeFall,
-	TFCond_GrapplingHookLatched,
+	TFCond_GrapplingHookLatched, //100
 	TFCond_GrapplingHookBleeding,
 	TFCond_AfterburnImmune,
 	TFCond_RuneKnockout,
@@ -314,7 +362,7 @@ TFCond tfca[128] = {
 	TFCond_PasstimeInterception,
 	TFCond_SwimmingNoEffects,
 	TFCond_EyeaductUnderworld,
-	TFCond_KingRune,
+	TFCond_KingRune, //110
 	TFCond_PlagueRune,
 	TFCond_SupernovaRune,
 	TFCond_Plague,
@@ -326,24 +374,24 @@ TFCond tfca[128] = {
 	//TFCond_NoTaunting,
 	//TFCond_NoTaunting_DEPRECATED,
 	TFCond_HealingDebuff,
-	TFCond_PasstimePenaltyDebuff,
+	TFCond_PasstimePenaltyDebuff, // 120
 	TFCond_GrappledToPlayer,
 	TFCond_GrappledByPlayer,
 	TFCond_ParachuteDeployed,
 	TFCond_Gas,
-	TFCond_BurningPyro,
+	TFCond_BurningPyro, // 125
 	TFCond_RocketPack,
 	TFCond_LostFooting,
-	TFCond_AirCurrent
+	TFCond_AirCurrent // 128
 }
 
 public pna_addcond (int[] conds, int client, float time, int length) //функция, добавляющая кондишны, указаные в массиве
 {
-	int c = 0;
-	while (c < length)
+	int c = 0; // Переменная для подсчёта
+	while (c < length) //Пока с меньше длинны
 	{
-		TF2_AddCondition(client, tfca[conds[c]], time, 0);
-		c++;
+		TF2_AddCondition(client, tfca[conds[c]], time, 0); // Добавляем кондишны, перебирая нужные из массива, присваиваем им время действия
+		c++; //+1 на счётчик, чтоб при следующем прогоне добавить следующиий в массиве конд
 	}
 }
 
@@ -356,3 +404,14 @@ public pna_removecond (int[] conds, int client, int length) //убирает состояния 
 		c++;
 	}
 }
+
+/// --- /// --- /// --- ///
+
+//Далее должны идти массивы с инфой по покупаемым перкам, обьединяющиеся в большой ArrayList
+
+//int perkTFCRefrences
+
+//int perkPrices
+
+//ArrayList CondShop = new ArrayList(3, 1);
+//CondShop.Push
