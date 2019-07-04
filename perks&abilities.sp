@@ -10,9 +10,9 @@ public Plugin:myinfo =
 {
 	name = "Perks&Abilities for everyone",
 	author = "Dllsearch",
-	description = "<- Description ->",
-	version = "0.0.3",
-	url = "<- URL ->"
+	description = "S T O N K S",
+	version = "0.0.4",
+	url = "ntaddv.space"
 } // угадай))
 
 enum perkdecks {
@@ -38,8 +38,8 @@ ConVar pnd_abl_chrg_t; // Консольная переменная, коэфф. зарядки перка по времени
 public void OnPluginStart() //при старте
 {
 	HookEvent("player_hurt", charger); //Ставим чекалку на хит
-	pnd_abl_chrg_k = CreateConVar("pnd_abl_chrg_k", "3.75", "Coefficient of taking ability points", _, true, 0.10, true, 100.00); //делаем в консоль переменную
-	pnd_abl_chrg_t = CreateConVar("pnd_abl_chrg_t", "1.25", "Coefficient of taking ability points", _, true, 0.10, true, 100.00); //другая переменная
+	pnd_abl_chrg_k = CreateConVar("pnd_abl_chrg_k", "2.280", "Coefficient of taking ability points", _, true, 0.10, true, 100.00); //делаем в консоль переменную
+	pnd_abl_chrg_t = CreateConVar("pnd_abl_chrg_t", "0.42", "Coefficient of taking ability points", _, true, 0.10, true, 100.00); //другая переменная
 	// pnd_abl_num = CreateConVar("pnd_abl_num", "0", "Description");
 	
 	HookConVarChange(pnd_abl_chrg_k, conVarKChanged); // Реагируем на изменение переменной
@@ -87,8 +87,10 @@ public OnClientConnected(int client) //Когда есть контакт, но я не юзаю (пока)
 	if (IsClientConnected(client) && IsClientInGame(client)) // если игрок играет
 	{
 		
-		SetHudTextParams(0.3, 0.6, 0.95, 255, 255, 255, 255, 2, 6.0, 0.1, 0.02); // Выставляем положение, время, цвет, эффект, время эффектов для текста
-		ShowHudText(client, -1, "PNA %f %%", pnd_AbilityPoints[client]); // Рисуем текст
+		SetHudTextParams(0.2, 0.6, 0.95, 255, 255, 255, 255, 2, 3.0, 0.1, 0.02); // Выставляем положение, время, цвет, эффект, время эффектов для текста
+		char ses[5];
+		FloatToString(pnd_AbilityPoints[client], ses, 5);
+		ShowHudText(client, -1, "PNA %s %%", ses); // Рисуем текст
 	}
  }
  
@@ -207,8 +209,9 @@ public void fspamer(int client) //готовый абилкосет
 
 public void ftank(int client) //готовый абилкосет
 {
-	int conds[7] = {26, 42, 61, 62, 63, 73, 93};
+	int conds[6] = {26, 42, 61, 62, 63, 73};
 	int limits = sizeof(conds);
+	TF2_RegeneratePlayer(client);
 	pna_addcond (conds, client, 25.00, limits);
 	discharge(client, 100.00);
 }
@@ -230,26 +233,52 @@ public charger(Event hEvent, const char[] name, bool dontBroadcast) //функция, в
 
 public void damage_charger(int client, float points) //Зарядка ударами
 {
-	// Убрал цикл для оптимизации, похер на красоту
-	pnd_AbilityPoints[client] += points; 
-	if (pnd_AbilityPoints[client] > 100.00) pnd_AbilityPoints[client] = 100.00;
+	// Сейчас идёт перебор по классу игрока. Если еслт совпатение - количество зарядов умножается на коэффициент для класса
+	if ( (TF2_GetPlayerClass(client) == TFClass_Pyro) ) points *= 0.42; // Если игрок пиро, то 42% от К
+	else if (
+	(TF2_GetPlayerClass(client) == TFClass_Heavy)
+	||
+	(TF2_GetPlayerClass(client) == TFClass_Engineer)
+	) // Еслли игрок Хуви или Инж, 80% от К
+	points *= 0.80;
+	else if (
+	(TF2_GetPlayerClass(client) == TFClass_Soldier)
+	||
+	(TF2_GetPlayerClass(client) == TFClass_DemoMan)
+	) // Если игрок Солд или Демо, 85%
+	points *= 0.85;
+	else if (
+	(TF2_GetPlayerClass(client) == TFClass_Sniper)
+	||
+	(TF2_GetPlayerClass(client) == TFClass_Scout)
+	) // Если снайпер или скот, 120%
+	points *= 1.20;
+	else if (
+	(TF2_GetPlayerClass(client) == TFClass_Medic)
+	||
+	(TF2_GetPlayerClass(client) == TFClass_Spy)
+	) // Если медик или шпик, 146% голосов ))))
+	points *= 1.46;
+	/// --- ///
+	pnd_AbilityPoints[client] += points; // Складываем поинты
+	if (pnd_AbilityPoints[client] > 100.00) pnd_AbilityPoints[client] = 100.00; // Если получилось >100%, делаем 100
 }
 
-public void discharge(int client, float points) //Зарядка ударами
+public void discharge(int client, float points) //Разрядка
 {
-	// Убрал цикл для оптимизации, похер на красоту
-	pnd_AbilityPoints[client] -= points; 
-	if (pnd_AbilityPoints[client] < 0.00) pnd_AbilityPoints[client] = 0.00;
+	pnd_AbilityPoints[client] -= points; // снимаем поинты
+	if (pnd_AbilityPoints[client] < 0.00) pnd_AbilityPoints[client] = 0.00; //если <0, делаем 0
 }
 
 public Action time_charger(Handle timer, int client) //зарядка по таймеру
 {
-	if (IsClientInGame(client) && !IsFakeClient(client) && (pnd_AbilityPoints[client] >= 100.00)) pnd_AbilityPoints[client] += pnd_abl_chrg_t.FloatValue;
-	if (pnd_AbilityPoints[client] > 100.00) pnd_AbilityPoints[client] = 100.00;
+	if (IsClientInGame(client) && !IsFakeClient(client) && (pnd_AbilityPoints[client] < 100.00)) // Если в клиент игре, не фейковый, и заряд <100
+		pnd_AbilityPoints[client] += pnd_abl_chrg_t.FloatValue; // прибавляем Т
+	if (pnd_AbilityPoints[client] > 100.00) pnd_AbilityPoints[client] = 100.00;  // Если получилось >100%, делаем 100
 }
 
 
-// Список состояний, аналогичный addcond, неточный, нестабильный, чистить
+// Список состояний, аналогичный addcond, почти идеально
 TFCond tfca[129] = {
 	TFCond_Slowed,	// 0
 	TFCond_Zoomed,
