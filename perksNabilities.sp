@@ -215,24 +215,12 @@ public Action perkDeckPanel(int client, int args) // Рисуем менюшку выбора готов
 
 /// --- /// --- /// --- ///
 
-Menu g_UPerksMenu = null;
- 
-public void OnMapStart()
-{
-	g_UPerksMenu = BuildMapMenu();
-}
- 
-public void OnMapEnd()
-{
-	delete g_UPerksMenu;
-}
- 
 Menu BuildMapMenu()
 {
 	Menu menu = new Menu(Menu_BuildPerkDeck);
 	for (int o = 0; o < sizeof(perkNames); o++)
 	{
-		menu.AddItem(perkNames[o], perkNames[o]);	
+		menu.AddItem(perkNames[o], perkNames[o]);
 	}
 	menu.SetTitle("Select your perk:");
 	return menu;
@@ -250,6 +238,13 @@ public int Menu_BuildPerkDeck(Menu menu, MenuAction action, int client, int item
 		*/
 		pnd_usersPerkDecks[client][0] = perkTFCperks[0];
 	}
+}
+
+public Action Comm_BuildPerkDeck(int client, int args)
+{ 
+	Menu menu = BuildMapMenu();
+	menu.Display(client, MENU_TIME_FOREVER);
+	return Plugin_Handled;
 }
 
 /// --- /// --- /// --- ///
@@ -292,8 +287,6 @@ public Action useAbility(int client, int args) //Вызывается при pna_use_ability
 		else if (pnd_Abilities[client] == 6) perkDeckPanel(client, 0);
 		else if (pnd_Abilities[client] == 7) 
 		{
-			PrintToChat(client, "ISNT WORK, TRY OTHER DECKS"); // Пишем в чат, что абилка использована
-			pnd_AbilityPoints[client] = 100.00;
 			perkDeckPanel(client, 0);
 		}
 		PrintToChat(client, "ABILITY USED"); // Пишем в чат, что абилка использована
