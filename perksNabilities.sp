@@ -8,11 +8,11 @@
 
 public Plugin:myinfo = 
 {
-	name = "Perks&Abilities for everyone",
+	name = "PerksNAbilities",
 	author = "Dllsearch",
-	description = "S T O N K S",
-	version = "0.0.5",
-	url = "ntaddv.space"
+	description = "Adds abilities & AP, also S T O N K S",
+	version = "0.0.6",
+	url = "http://ntaddv.space"
 } // угадай))
 
 enum perkdecks {
@@ -24,18 +24,103 @@ enum perkdecks {
 	snake, //GAME OVER (Snake. Snake? SNAAAAAKE!!!)
 	agent, // будет первым пассивным билдом, пока думаю логику
 	user //собственный билд игрока
+	// 200MAD // for 200% M A D mode (it costs 200000 dollars to use this ability... for 12 seconds...
 }; // список билдов
 
 float pnd_AbilityPoints[MAXPLAYERS + 1] = {0, ...}; //массив, хранящий уровень заряда игроков
 perkdecks pnd_Abilities[MAXPLAYERS + 1] = {0, ...}; //массив, хранящий номер билда абилки игроков
-
-
+float pnd_APMax[MAXPLAYERS + 1] = {0, ...}; //массив, хранящий макс. кол-во AP игрокаов
+int pnd_usersPerkDecks[MAXPLAYERS + 1][3]; //массив, хранящий деку игроков
+//int pnd_usersPerkDecks1[MAXPLAYERS + 1];
+//int pnd_usersPerkDecks2[MAXPLAYERS + 1];
+//int pnd_usersPerkDecks3[MAXPLAYERS + 1];
 ConVar pnd_abl_chrg_k; // Консольная переменная, коэфф. зарядки перка
 ConVar pnd_abl_chrg_t; // Консольная переменная, коэфф. зарядки перка по времени, пока не пашет
 // ConVar pnd_abl_num;
 
+int perkTFCperks[22] = {
+	TFCond_Bonked,
+	TFCond_Buffed,
+	TFCond_CritCola,
+	TFCond_DefenseBuffed,
+	TFCond_RegenBuffed,
+	TFCond_SpeedBuffAlly,
+	TFCond_CritHype,
+	TFCond_DefenseBuffNoCritBlock,
+	TFCond_UberBulletResist,
+	TFCond_UberBlastResist,
+	TFCond_UberFireResist,
+	TFCond_SmallBulletResist,
+	TFCond_SmallBlastResist,
+	TFCond_SmallFireResist,
+	TFCond_Stealthed,
+	TFCond_PreventDeath,
+	TFCond_HalloweenGiant,
+	TFCond_HalloweenTiny,
+	TFCond_HalloweenGhostMode,
+	TFCond_Parachute,
+	TFCond_SwimmingCurse,
+	TFCond_KingAura
+}
+
+float perkPrices[22] = {
+	1.0,
+	2.0,
+	3.0,
+	4.0,
+	5.0,
+	6.0,
+	7.0,
+	8.0,
+	9.0,
+	10.0,
+	11.0,
+	12.0,
+	13.0,
+	14.0,
+	15.0,
+	16.0,
+	17.0,
+	18.0,
+	19.0,
+	20.0,
+	21.0,
+	22.0	
+}
+
+char perkNames[22][] = {
+	"TFCond_Bonked",
+	"TFCond_Buffed",
+	"TFCond_CritCola",
+	"TFCond_DefenseBuffed",
+	"TFCond_RegenBuffed",
+	"TFCond_SpeedBuffAlly",
+	"TFCond_CritHype",
+	"TFCond_DefenseBuffNoCritBlock",
+	"TFCond_UberBulletResist",
+	"TFCond_UberBlastResist",
+	"TFCond_UberFireResist",
+	"TFCond_SmallBulletResist",
+	"TFCond_SmallBlastResist",
+	"TFCond_SmallFireResist",
+	"TFCond_Stealthed",
+	"TFCond_PreventDeath",
+	"TFCond_HalloweenGiant",
+	"TFCond_HalloweenTiny",
+	"TFCond_HalloweenGhostMode",
+	"TFCond_Parachute",
+	"TFCond_SwimmingCurse",
+	"TFCond_KingAura"
+}
+
+
+
 public void OnPluginStart() //при старте
 {
+	for (int ses = 0; ses < MAXPLAYERS + 1; ses++)
+	{
+		pnd_usersPerkDecks[ses] = {0,0,0};
+	}
 	HookEvent("player_hurt", charger); //Ставим чекалку на хит
 	pnd_abl_chrg_k = CreateConVar("pnd_abl_chrg_k", "1.42", "Coefficient of taking ability points", _, true, 0.00, true, 100.00); //делаем в консоль переменную
 	pnd_abl_chrg_t = CreateConVar("pnd_abl_chrg_t", "0.42", "Coefficient of taking ability points", _, true, 0.00, true, 100.00); //другая переменная
@@ -57,6 +142,7 @@ public void OnClientPutInServer(int client) //когда игрок входит на сервер
 {
 	pnd_AbilityPoints[client] = 0; // Прописываем 0 очкв абилки нвому юзеру
 	pnd_Abilities[client] = 0; // И 0й перк (знчт, что не выбирал)
+	pnd_APMax[client] = 100.0; // Ставим лимит AP в 100.0
 	perkDeckPanel(client, 0); // Если только присоединился, предлагаем выбрать перк
 	
 	CreateTimer (1.0, chargeHUD, client, TIMER_REPEAT );
@@ -86,7 +172,7 @@ public OnClientConnected(int client) //Когда есть контакт, но я не юзаю (пока)
 	if (IsClientConnected(client) && IsClientInGame(client)) // если игрок играет
 	{
 		
-		SetHudTextParams(0.03, 0.07, 0.95, 255, 255, 255, 255, 2, 1.0, 0.03, 0.01); // Выставляем положение, время, цвет, эффект, время эффектов для текста
+		SetHudTextParams(0.07, 0.07, 0.95, 255, 255, 255, 255, 2, 0.03, 0.01, 0.01); // Выставляем положение, время, цвет, эффект, время эффектов для текста
 		char ses[5];
 		FloatToString(pnd_AbilityPoints[client], ses, 5);
 		ShowHudText(client, -1, "PNA %s %%", ses); // Рисуем текст
@@ -129,18 +215,56 @@ public Action perkDeckPanel(int client, int args) // Рисуем менюшку выбора готов
 
 /// --- /// --- /// --- ///
 
+Menu g_UPerksMenu = null;
+ 
+public void OnMapStart()
+{
+	g_UPerksMenu = BuildMapMenu();
+}
+ 
+public void OnMapEnd()
+{
+	delete g_UPerksMenu;
+}
+ 
+Menu BuildMapMenu()
+{
+	Menu menu = new Menu(Menu_BuildPerkDeck);
+	for (int o = 0; o < sizeof(perkNames); o++)
+	{
+		menu.AddItem(perkNames[o], perkNames[o]);	
+	}
+	menu.SetTitle("Select your perk:");
+	return menu;
+}
+
+public int Menu_BuildPerkDeck(Menu menu, MenuAction action, int client, int item)
+{
+	if (action == MenuAction_Select)
+	{
+		/*
+		char info[32];
+		bool found = menu.GetItem(item, info, sizeof(info));
+		PrintToConsole(client, "You selected item: %d (found? %d info: %s)", item, found, info);
+		ServerCommand("changelevel %s", info); 
+		*/
+		pnd_usersPerkDecks[client][0] = perkTFCperks[0];
+	}
+}
+
+/// --- /// --- /// --- ///
 public Action useAbility(int client, int args) //Вызывается при pna_use_ability
 {
 	char arg[128];
 	char full[256];
  
-	GetCmdArgString(full, sizeof(full));
+	/* GetCmdArgString(full, sizeof(full));
  
 	if (client)
 	{
 		PrintToServer("Command pna_ability_use from client %d", client);
 	} else {
-		PrintToServer("Command pna_ability_use from server");
+		PrintToServer("Command pna_ability_use from... server?");
 	}
  
 	PrintToServer("Argument string: %s", full);
@@ -150,7 +274,7 @@ public Action useAbility(int client, int args) //Вызывается при pna_use_ability
 		GetCmdArg(i, arg, sizeof(arg));
 		PrintToServer("Argument %d: %s", i, arg);
 	}
-	
+	*/
 	if ( pnd_AbilityPoints[client] == 100.00 ) // Если абилка заряжена
 	{
 		// Перебор и вызов абилк. SWITCH тут глючит пздц, так что, пришлось делать через if else
@@ -184,7 +308,15 @@ public Action useAbility(int client, int args) //Вызывается при pna_use_ability
 	return Plugin_Handled; //сообщает, что отработал
 } 
 
-public void frager(int client) //готовый абилкосет
+public void userPerkdeckUse (int client) // Активатор абилки юзера
+{
+	//float price = perkPrices[pnd_usersPerkDecks[client][1]] + perkPrices[pnd_usersPerkDecks[client][2]] + perkPrices[pnd_usersPerkDecks[client][3]]; // Складываем стоимость перков игрока в общую стоимость
+	float price = perkPrices[pnd_usersPerkDecks[client][0]] + perkPrices[pnd_usersPerkDecks[client][1]] + perkPrices[pnd_usersPerkDecks[client][2]]; // Складываем стоимость перков игрока в общую стоимость
+	float secks = pnd_AbilityPoints[client]/price; // Делим AP игрока на общую стоимость абилок, получаем кол-во секунд работы
+	pna_addcond (pnd_usersPerkDecks[client][0], client, secks, 3); // Применяем выбранные юзером абилки на полученное время
+}
+
+public void frager(int client) //готовый абилкосет "Rager"
 {
 	int conds[4] = {19, 26, 29, 60};
 	int limits = sizeof(conds);
@@ -192,7 +324,7 @@ public void frager(int client) //готовый абилкосет
 	discharge(client, 56.00);
 }
 
-public void frunner(int client) //готовый абилкосет
+public void frunner(int client) //готовый абилкосет "Runner"
 {
 	int conds[3] = {26, 42, 72};
 	int limits = sizeof(conds);
@@ -200,7 +332,7 @@ public void frunner(int client) //готовый абилкосет
 	discharge(client, 22.00);
 }
 
-public void fspamer(int client) //готовый абилкосет
+public void fspamer(int client) //готовый абилкосет "Spammer"
 {
 	int conds[3] = {16, 72, 91};
 	int limits = sizeof(conds);
@@ -208,7 +340,7 @@ public void fspamer(int client) //готовый абилкосет
 	discharge(client, 78.00);
 }
 
-public void ftank(int client) //готовый абилкосет
+public void ftank(int client) //готовый абилкосет "TAAANK!"
 {
 	int conds[6] = {26, 42, 61, 62, 63, 73};
 	int limits = sizeof(conds);
@@ -217,7 +349,7 @@ public void ftank(int client) //готовый абилкосет
 	discharge(client, 100.00);
 }
 
-public void fsnake(int client) //готовый абилкосет
+public void fsnake(int client) //готовый абилкосет "(solid) Snake"
 {
 	int conds[4] = {32, 66};
 	int limits = sizeof(conds);
@@ -227,26 +359,35 @@ public void fsnake(int client) //готовый абилкосет
 
 public charger(Event hEvent, const char[] name, bool dontBroadcast) //функция, вызываемая, когда кто-то кого-то бьёт
 {
-	//int client = GetClientOfUserId(hEvent.GetInt("userid"));
 	int attacker = GetClientOfUserId(hEvent.GetInt("attacker"));
 	damage_charger(attacker, pnd_abl_chrg_k.FloatValue);
+	/*	
+	int attacked = GetClientOfUserId(hEvent.GetInt("userid"));
+	for(int x = 0; x < 3; x++)
+	{
+		if(isAttackingPerk[pnd_usersPerkDecks[attacker][y]])
+		{
+			perkHitCond(attacked, perkTFCperks[pnd_usersPerkDecks[attacker][y]]);
+		}
+	}
+	*/
 }
 
 public void damage_charger(int client, float points) //Зарядка ударами
 {
 	// Сейчас идёт перебор по классу игрока. Если еслт совпатение - количество зарядов умножается на коэффициент для класса
-	if (TF2_GetPlayerClass(client) == TFClass_Pyro) points *= 0.42; // Если игрок пиро, то 42% от К
-	else if (TF2_GetPlayerClass(client) == TFClass_Heavy) points *= 0.73;// Если игрок Хуви 80% от К
-	else if (TF2_GetPlayerClass(client) == TFClass_Engineer) points *= 0.80;// Если игрок Инж, 85% от К
-	else if (TF2_GetPlayerClass(client) == TFClass_DemoMan) points *= 0.85; // итд
-	else if (TF2_GetPlayerClass(client) == TFClass_Soldier) points *= 0.90;
-	else if (TF2_GetPlayerClass(client) == TFClass_Sniper) points *= 1.10;
-	else if (TF2_GetPlayerClass(client) == TFClass_Scout) points *= 1.15;
-	else if (TF2_GetPlayerClass(client) == TFClass_Medic) points *= 1.20;
-	else if (TF2_GetPlayerClass(client) == TFClass_Spy) points *= 1.60;
+	if (TF2_GetPlayerClass(client) == TFClass_Pyro) points *= 0.39; // Если игрок пиро, то 42% от К
+	else if (TF2_GetPlayerClass(client) == TFClass_Heavy) points *= 0.74;// Если игрок Хуви 80% от К
+	else if (TF2_GetPlayerClass(client) == TFClass_DemoMan) points *= 0.80; // итд
+	else if (TF2_GetPlayerClass(client) == TFClass_Soldier) points *= 0.85;
+	else if (TF2_GetPlayerClass(client) == TFClass_Engineer) points *= 1.01;// Если игрок Инж, 101% от К
+	else if (TF2_GetPlayerClass(client) == TFClass_Spy) points *= 1.13;
+	else if (TF2_GetPlayerClass(client) == TFClass_Sniper) points *= 1.17;
+	else if (TF2_GetPlayerClass(client) == TFClass_Scout) points *= 1.33;
+	else if (TF2_GetPlayerClass(client) == TFClass_Medic) points *= 1.57;
 	/// --- ///
 	pnd_AbilityPoints[client] += points; // Складываем поинты
-	if (pnd_AbilityPoints[client] > 100.00) pnd_AbilityPoints[client] = 100.00; // Если получилось >100%, делаем 100
+	if (pnd_AbilityPoints[client] > pnd_APMax[client]) pnd_AbilityPoints[client] = pnd_APMax[client];  // Если получилось больше лимита, делаем равным лимиту
 }
 
 public void discharge(int client, float points) //Разрядка
@@ -257,14 +398,14 @@ public void discharge(int client, float points) //Разрядка
 
 public Action time_charger(Handle timer, int client) //зарядка по таймеру
 {
-	if (IsClientInGame(client) && !IsFakeClient(client) && (pnd_AbilityPoints[client] < 100.00)) // Если в клиент игре, не фейковый, и заряд <100
+	if (IsClientInGame(client) && !IsFakeClient(client) && (pnd_AbilityPoints[client] < pnd_APMax[client])) // Если в клиент игре, не фейковый, и заряд меньше лимита
 		pnd_AbilityPoints[client] += pnd_abl_chrg_t.FloatValue; // прибавляем Т
-	if (pnd_AbilityPoints[client] > 100.00) pnd_AbilityPoints[client] = 100.00;  // Если получилось >100%, делаем 100
+	if (pnd_AbilityPoints[client] > pnd_APMax[client]) pnd_AbilityPoints[client] = pnd_APMax[client];  // Если получилось больше лимита, делаем равным лимиту
 }
 
 
 // Список состояний, аналогичный addcond, почти идеально
-TFCond tfca[129] = {
+TFCond tfca[128] = {
 	TFCond_Slowed,	// 0
 	TFCond_Zoomed,
 	TFCond_Disguising,
@@ -293,7 +434,6 @@ TFCond tfca[129] = {
 	TFCond_Overhealed,
 	TFCond_Jarated,
 	TFCond_Bleeding, //25
-	TFCond_DefenseBuffed,
 	TFCond_Milked,
 	TFCond_MegaHeal,
 	TFCond_RegenBuffed,
@@ -376,8 +516,8 @@ TFCond tfca[129] = {
 	TFCond_PasstimeInterception,
 	TFCond_SwimmingNoEffects,
 	TFCond_EyeaductUnderworld,
-	TFCond_KingRune, //110
-	TFCond_PlagueRune,
+	TFCond_KingRune,
+	TFCond_PlagueRune, //110
 	TFCond_SupernovaRune,
 	TFCond_Plague,
 	TFCond_KingAura,
@@ -388,15 +528,15 @@ TFCond tfca[129] = {
 	//TFCond_NoTaunting,
 	//TFCond_NoTaunting_DEPRECATED,
 	TFCond_HealingDebuff,
-	TFCond_PasstimePenaltyDebuff, // 120
-	TFCond_GrappledToPlayer,
+	TFCond_PasstimePenaltyDebuff,
+	TFCond_GrappledToPlayer, // 120
 	TFCond_GrappledByPlayer,
 	TFCond_ParachuteDeployed,
 	TFCond_Gas,
-	TFCond_BurningPyro, // 125
-	TFCond_RocketPack,
+	TFCond_BurningPyro,
+	TFCond_RocketPack, // 125
 	TFCond_LostFooting,
-	TFCond_AirCurrent // 128
+	TFCond_AirCurrent // 127
 }
 
 public pna_addcond (int[] conds, int client, float time, int length) //функция, добавляющая кондишны, указаные в массиве
@@ -421,11 +561,30 @@ public pna_removecond (int[] conds, int client, int length) //убирает состояния 
 
 /// --- /// --- /// --- ///
 
-//Далее должны идти массивы с инфой по покупаемым перкам, обьединяющиеся в большой ArrayList
-
-//int perkTFCRefrences
-
-//int perkPrices
-
-//ArrayList CondShop = new ArrayList(3, 1);
-//CondShop.Push
+//Далее должны идти массивы с инфой по покупаемым перкам, НЕ обьединяющиеся в ArrayList?
+/*bool isAttackingPerk[22] = {
+	false,
+	false,	
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false
+}*/
+//ArrayList CondShop = new ArrayList(3, 129); 
+// CondShop.Push
