@@ -204,7 +204,7 @@ public Action perkDeckPanel(int client, int args) // Рисуем менюшку выбора готов
 	panel.DrawItem("tank");
 	panel.DrawItem("snake");
 	panel.DrawItem("agent (dont works)");
-	panel.DrawItem("Make your OWN perkdeck! (isnt workin too)");
+	panel.DrawItem("Make your OWN perkdeck! (BETA)");
  
 	panel.Send(client, perkDeckPanelHandler, 120);
  
