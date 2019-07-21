@@ -22,7 +22,7 @@ enum perkdecks {
 	spamer, // Спаммер
 	tank, // ТААААНК
 	snake, //GAME OVER (Snake. Snake? SNAAAAAKE!!!)
-	agent, // будет первым пассивным билдом, пока думаю логику
+	test,
 	user //собственный билд игрока
 	// 200MAD // for 200% M A D mode (it costs 200000 dollars to use this ability... for 12 seconds...
 }; // список билдов
@@ -31,6 +31,7 @@ float pnd_AbilityPoints[MAXPLAYERS + 1] = {0, ...}; //массив, хранящий уровень з
 perkdecks pnd_Abilities[MAXPLAYERS + 1] = {0, ...}; //массив, хранящий номер билда абилки игроков
 float pnd_APMax[MAXPLAYERS + 1] = {0, ...}; //массив, хранящий макс. кол-во AP игрокаов
 int pnd_usersPerkDecks[MAXPLAYERS + 1][3]; //массив, хранящий деку игроков
+int pnd_usersPerkDecksC[MAXPLAYERS + 1]; //
 //int pnd_usersPerkDecks1[MAXPLAYERS + 1];
 //int pnd_usersPerkDecks2[MAXPLAYERS + 1];
 //int pnd_usersPerkDecks3[MAXPLAYERS + 1];
@@ -145,6 +146,8 @@ public void OnClientPutInServer(int client) //когда игрок входит на сервер
 	pnd_APMax[client] = 100.0; // Ставим лимит AP в 100.0
 	perkDeckPanel(client, 0); // Если только присоединился, предлагаем выбрать перк
 	
+	pnd_usersPerkDecksC[client] = 0;
+	
 	CreateTimer (1.0, chargeHUD, client, TIMER_REPEAT );
 	///
 	CreateTimer (1.0, time_charger, client, TIMER_REPEAT );
@@ -172,7 +175,7 @@ public OnClientConnected(int client) //Когда есть контакт, но я не юзаю (пока)
 	if (IsClientConnected(client) && IsClientInGame(client)) // если игрок играет
 	{
 		
-		SetHudTextParams(0.07, 0.07, 0.95, 255, 255, 255, 255, 2, 0.03, 0.01, 0.01); // Выставляем положение, время, цвет, эффект, время эффектов для текста
+		SetHudTextParams(0.09, 0.07, 0.9, 255, 255, 255, 255, 2, 0.02, 0.01, 0.01); // Выставляем положение, время, цвет, эффект, время эффектов для текста
 		char ses[5];
 		FloatToString(pnd_AbilityPoints[client], ses, 5);
 		ShowHudText(client, -1, "PNA %s %%", ses); // Рисуем текст
@@ -185,6 +188,11 @@ public int perkDeckPanelHandler(Menu menu, MenuAction action, int client, int ab
 {
 	if (action == MenuAction_Select)
 	{
+		if(ablt == 7) 
+		{
+			Comm_BuildPerkDeck(client, 0);
+			pnd_usersPerkDecksC[client] = 0;
+		}
 		PrintToConsole(client, "You selected perk # %d", ablt);
 		pnd_Abilities[client] = ablt;
 	}
@@ -197,16 +205,16 @@ public int perkDeckPanelHandler(Menu menu, MenuAction action, int client, int ab
 public Action perkDeckPanel(int client, int args) // Рисуем менюшку выбора готовых перков
 {
 	Panel panel = new Panel();
-	panel.SetTitle("Choose your deck:");
+	panel.SetTitle("!perks | Choose your perkdeck. | bind pnd_ability_use to activate");
 	panel.DrawItem("rager");
 	panel.DrawItem("runner");
 	panel.DrawItem("spamer");
 	panel.DrawItem("tank");
 	panel.DrawItem("snake");
-	panel.DrawItem("agent (dont works)");
+	panel.DrawItem("BDSM");
 	panel.DrawItem("Make your OWN perkdeck! (BETA)");
  
-	panel.Send(client, perkDeckPanelHandler, 120);
+	panel.Send(client, perkDeckPanelHandler, MENU_TIME_FOREVER);
  
 	delete panel;
  
@@ -222,7 +230,7 @@ Menu BuildMapMenu()
 	{
 		menu.AddItem(perkNames[o], perkNames[o]);
 	}
-	menu.SetTitle("Select your perk:");
+	menu.SetTitle("!perks | Choose your perks | bind pnd_ability_use to activate");
 	return menu;
 }
 
@@ -236,7 +244,12 @@ public int Menu_BuildPerkDeck(Menu menu, MenuAction action, int client, int item
 		PrintToConsole(client, "You selected item: %d (found? %d info: %s)", item, found, info);
 		ServerCommand("changelevel %s", info); 
 		*/
-		pnd_usersPerkDecks[client][0] = perkTFCperks[0];
+		if (pnd_usersPerkDecksC[client] < 3)
+		{
+			pnd_usersPerkDecks[client][pnd_usersPerkDecksC[client]] = item;
+			pnd_usersPerkDecksC[client]++;
+			if (pnd_usersPerkDecksC[client] < 3) Comm_BuildPerkDeck(client, 0);
+		}
 	}
 }
 
@@ -284,10 +297,19 @@ public Action useAbility(int client, int args) //Вызывается при pna_use_ability
 		else if (pnd_Abilities[client] == 3) fspamer(client);
 		else if (pnd_Abilities[client] == 4) ftank(client);
 		else if (pnd_Abilities[client] == 5) fsnake(client);
-		else if (pnd_Abilities[client] == 6) perkDeckPanel(client, 0);
+		else if (pnd_Abilities[client] == 6) testin(client);
 		else if (pnd_Abilities[client] == 7) 
 		{
-			perkDeckPanel(client, 0);
+			//perkDeckPanel(client, 0);
+			//Comm_BuildPerkDeck(client, 0);
+			float pushittothelimit = pnd_AbilityPoints[client] / ( perkPrices[pnd_usersPerkDecks[client][0]] + perkPrices[pnd_usersPerkDecks[client][1]] + perkPrices[pnd_usersPerkDecks[client][2]] );
+			int [] buttsecs = new int[pnd_usersPerkDecksC[client]];
+			for (int x = 0; x < pnd_usersPerkDecksC[client]; x++)
+			{
+				buttsecs[x] = perkTFCperks[pnd_usersPerkDecks[client][x]];
+			}
+			pna_addcond(buttsecs, client, pushittothelimit, pnd_usersPerkDecksC[client]);
+			pnd_AbilityPoints[client] = 0;
 		}
 		PrintToChat(client, "ABILITY USED"); // Пишем в чат, что абилка использована
 	}
@@ -335,9 +357,9 @@ public void fspamer(int client) //готовый абилкосет "Spammer"
 
 public void ftank(int client) //готовый абилкосет "TAAANK!"
 {
-	int conds[6] = {26, 42, 61, 62, 63, 73};
+	int conds[7] = {26, 42, 61, 62, 63, 73, 26};
 	int limits = sizeof(conds);
-	TF2_RegeneratePlayer(client);
+	//TF2_RegeneratePlayer(client);
 	pna_addcond (conds, client, 25.00, limits);
 	discharge(client, 100.00);
 }
@@ -348,6 +370,14 @@ public void fsnake(int client) //готовый абилкосет "(solid) Snake"
 	int limits = sizeof(conds);
 	pna_addcond (conds, client, 7.00, limits);
 	discharge(client, 30.00);
+}
+
+public void testin(int client) //test
+{
+	int conds[4] = {24,25,27};
+	int limits = sizeof(conds);
+	pna_addcond (conds, client, 3.00, limits);
+	discharge(client, 5.00);
 }
 
 public charger(Event hEvent, const char[] name, bool dontBroadcast) //функция, вызываемая, когда кто-то кого-то бьёт
@@ -397,7 +427,7 @@ public Action time_charger(Handle timer, int client) //зарядка по таймеру
 }
 
 
-// Список состояний, аналогичный addcond, почти идеально
+// Список состояний, аналогичный addcond
 TFCond tfca[128] = {
 	TFCond_Slowed,	// 0
 	TFCond_Zoomed,
@@ -427,6 +457,7 @@ TFCond tfca[128] = {
 	TFCond_Overhealed,
 	TFCond_Jarated,
 	TFCond_Bleeding, //25
+	TFCond_DefenseBuffed,
 	TFCond_Milked,
 	TFCond_MegaHeal,
 	TFCond_RegenBuffed,
@@ -534,11 +565,9 @@ TFCond tfca[128] = {
 
 public pna_addcond (int[] conds, int client, float time, int length) //функция, добавляющая кондишны, указаные в массиве
 {
-	int c = 0; // Переменная для подсчёта
-	while (c < length) //Пока с меньше длинны
+	for (int c=0; c<length; c++)
 	{
 		TF2_AddCondition(client, tfca[conds[c]], time, 0); // Добавляем кондишны, перебирая нужные из массива, присваиваем им время действия
-		c++; //+1 на счётчик, чтоб при следующем прогоне добавить следующиий в массиве конд
 	}
 }
 
