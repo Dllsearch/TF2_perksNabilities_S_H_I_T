@@ -175,7 +175,7 @@ public OnClientConnected(int client) //Когда есть контакт, но я не юзаю (пока)
 	if (IsClientConnected(client) && IsClientInGame(client)) // если игрок играет
 	{
 		
-		SetHudTextParams(0.09, 0.07, 0.9, 255, 255, 255, 255, 2, 0.02, 0.01, 0.01); // Выставляем положение, время, цвет, эффект, время эффектов для текста
+		SetHudTextParams(0.15, 0.07, 0.9, 255, 255, 255, 255, 2, 0.02, 0.01, 0.01); // Выставляем положение, время, цвет, эффект, время эффектов для текста
 		char ses[5];
 		FloatToString(pnd_AbilityPoints[client], ses, 5);
 		ShowHudText(client, -1, "PNA %s %%", ses); // Рисуем текст
