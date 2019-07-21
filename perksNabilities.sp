@@ -357,7 +357,7 @@ public void fspamer(int client) //готовый абилкосет "Spammer"
 
 public void ftank(int client) //готовый абилкосет "TAAANK!"
 {
-	int conds[7] = {26, 42, 61, 62, 63, 73, 26};
+	int conds[6] = {26, 42, 61, 62, 63, 73};
 	int limits = sizeof(conds);
 	//TF2_RegeneratePlayer(client);
 	pna_addcond (conds, client, 25.00, limits);
