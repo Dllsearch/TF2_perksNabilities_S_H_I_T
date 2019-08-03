@@ -114,7 +114,30 @@ char perkNames[22][] = {
 	"TFCond_KingAura"
 }
 
-
+bool isAttackingPerk[22] = {
+	false,
+	false,	
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false,
+	false
+}
 
 public void OnPluginStart() //при старте
 {
@@ -331,6 +354,11 @@ public void userPerkdeckUse (int client) // Активатор абилки юзера
 	pna_addcond (pnd_usersPerkDecks[client][0], client, secks, 3); // Применяем выбранные юзером абилки на полученное время
 }
 
+public void useRPS(int client, int PS)
+{
+	int RPSM [6]
+}
+
 public void frager(int client) //готовый абилкосет "Rager"
 {
 	int conds[4] = {19, 26, 29, 60};
@@ -382,10 +410,14 @@ public void testin(int client) //test
 
 public charger(Event hEvent, const char[] name, bool dontBroadcast) //функция, вызываемая, когда кто-то кого-то бьёт
 {
-	int attacker = GetClientOfUserId(hEvent.GetInt("attacker"));
-	damage_charger(attacker, pnd_abl_chrg_k.FloatValue);
-	/*	
-	int attacked = GetClientOfUserId(hEvent.GetInt("userid"));
+	int victim = GetClientOfUserId(hEvent.GetInt("attacker"));
+	damage_charger(victim, pnd_abl_chrg_k.FloatValue);
+	
+	int target = GetClientOfUserId(hEvent.GetInt("userid"));
+	
+	pna_actOnHit(victim, target);
+	
+	/*	One of hitperks realisation variant
 	for(int x = 0; x < 3; x++)
 	{
 		if(isAttackingPerk[pnd_usersPerkDecks[attacker][y]])
@@ -583,30 +615,23 @@ public pna_removecond (int[] conds, int client, int length) //убирает состояния 
 
 /// --- /// --- /// --- ///
 
+public pna_actOnHit (int victim, int target)
+{
+	for (int x= 0; x < pnd_usersPerkDecksC; x++)
+	{
+		if (pnd_usersPerkDecks[victim][x] == isAttackingPerk)
+		{
+			// Do some black magic
+			pna_addcond (pnd_usersPerkDecks[victim][x], target, 1, 1);
+		}
+	}
+}
+
+
+public void check_if_uses_ab(int client, int sesilo
+/// --- /// --- /// --- ///
+
 //Далее должны идти массивы с инфой по покупаемым перкам, НЕ обьединяющиеся в ArrayList?
-/*bool isAttackingPerk[22] = {
-	false,
-	false,	
-	false,
-	false,
-	false,
-	false,
-	false,
-	false,
-	false,
-	false,
-	false,
-	false,
-	false,
-	false,
-	false,
-	false,
-	false,
-	false,
-	false,
-	false,
-	false,
-	false
-}*/
+/**/
 //ArrayList CondShop = new ArrayList(3, 129); 
 // CondShop.Push
