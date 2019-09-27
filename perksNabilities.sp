@@ -39,7 +39,7 @@ ConVar pnd_abl_chrg_k; // Консольная переменная, коэфф. зарядки перка
 ConVar pnd_abl_chrg_t; // Консольная переменная, коэфф. зарядки перка по времени, пока не пашет
 // ConVar pnd_abl_num;
 
-int perkTFCperks[22] = {
+int perkTFCperks[22] = { // Список перков для билда
 	TFCond_Bonked,
 	TFCond_Buffed,
 	TFCond_CritCola,
@@ -64,32 +64,32 @@ int perkTFCperks[22] = {
 	TFCond_KingAura
 }
 
-float perkPrices[22] = {
-	1.0,
-	2.0,
-	3.0,
-	4.0,
+float perkPrices[22] = { // Цены перков
 	5.0,
+	4.55,
+	7.43,
+	6.66,
+	5.25,
+	4.04,
+	5.88,
 	6.0,
-	7.0,
-	8.0,
-	9.0,
-	10.0,
-	11.0,
-	12.0,
-	13.0,
-	14.0,
-	15.0,
-	16.0,
-	17.0,
+	6.0,
+	5.5,
+	5.5,
+	4.5,
+	4.0,
+	4.0,
 	18.0,
-	19.0,
-	20.0,
-	21.0,
-	22.0	
+	16.0,
+	11.0,
+	11.0,
+	9.5,
+	3.0,
+	6.25,
+	10.56	
 }
 
-char perkNames[22][] = {
+char perkNames[22][] = { // Названия
 	"TFCond_Bonked",
 	"TFCond_Buffed",
 	"TFCond_CritCola",
@@ -114,7 +114,7 @@ char perkNames[22][] = {
 	"TFCond_KingAura"
 }
 
-bool isAttackingPerk[22] = {
+bool isAttackingPerk[22] = { // Работает принанесении урона?
 	false,
 	false,	
 	false,
@@ -171,9 +171,9 @@ public void OnClientPutInServer(int client) //когда игрок входит на сервер
 	
 	pnd_usersPerkDecksC[client] = 0;
 	
-	CreateTimer (1.0, chargeHUD, client, TIMER_REPEAT );
+	CreateTimer (1.0, chargeHUD, client, TIMER_REPEAT ); // Таймер на обновление собщения на экране
 	///
-	CreateTimer (1.0, time_charger, client, TIMER_REPEAT );
+	CreateTimer (1.0, time_charger, client, TIMER_REPEAT ); // Таймер на зарядку со временем
 }
 
 public OnClientConnected(int client) //Когда есть контакт, но я не юзаю (пока)
@@ -199,8 +199,8 @@ public OnClientConnected(int client) //Когда есть контакт, но я не юзаю (пока)
 	{
 		
 		SetHudTextParams(0.15, 0.07, 0.9, 255, 255, 255, 255, 2, 0.02, 0.01, 0.01); // Выставляем положение, время, цвет, эффект, время эффектов для текста
-		char ses[5];
-		FloatToString(pnd_AbilityPoints[client], ses, 5);
+		char ses[5]; // Строка, хранящая энергию в тексте, размером в 5 символов
+		FloatToString(pnd_AbilityPoints[client], ses, 5); // Записываем значение в ses
 		ShowHudText(client, -1, "PNA %s %%", ses); // Рисуем текст
 	}
  }
@@ -209,15 +209,15 @@ public OnClientConnected(int client) //Когда есть контакт, но я не юзаю (пока)
  
 public int perkDeckPanelHandler(Menu menu, MenuAction action, int client, int ablt) // Смотрим выбранный пункт меню
 {
-	if (action == MenuAction_Select)
+	if (action == MenuAction_Select) // если жмякнули
 	{
-		if(ablt == 7) 
+		if(ablt == 7) // 7
 		{
-			Comm_BuildPerkDeck(client, 0);
-			pnd_usersPerkDecksC[client] = 0;
+			Comm_BuildPerkDeck(client, 0); // Вызываем меню сборки ПеркДека
+			pnd_usersPerkDecksC[client] = 0; // Записываем 0 в перкдек
 		}
-		PrintToConsole(client, "You selected perk # %d", ablt);
-		pnd_Abilities[client] = ablt;
+		PrintToConsole(client, "You selected perk # %d", ablt); // Сообщаем куда надо
+		pnd_Abilities[client] = ablt; // прописываем в абилки
 	}
 	else if (action == MenuAction_Cancel)
 	{
@@ -227,8 +227,8 @@ public int perkDeckPanelHandler(Menu menu, MenuAction action, int client, int ab
  
 public Action perkDeckPanel(int client, int args) // Рисуем менюшку выбора готовых перков
 {
-	Panel panel = new Panel();
-	panel.SetTitle("!perks | Choose your perkdeck. | bind pnd_ability_use to activate");
+	Panel panel = new Panel(); // Создаём панель
+	panel.SetTitle("!perks | Choose your perkdeck. | bind pnd_ability_use to activate"); // Заголовок
 	panel.DrawItem("rager");
 	panel.DrawItem("runner");
 	panel.DrawItem("spamer");
@@ -237,16 +237,16 @@ public Action perkDeckPanel(int client, int args) // Рисуем менюшку выбора готов
 	panel.DrawItem("BDSM");
 	panel.DrawItem("Make your OWN perkdeck! (BETA)");
  
-	panel.Send(client, perkDeckPanelHandler, MENU_TIME_FOREVER);
+	panel.Send(client, perkDeckPanelHandler, MENU_TIME_FOREVER); // Отправляем клиенту ПД
  
-	delete panel;
+	delete panel; // Удоляем за собой панель
  
-	return Plugin_Handled;
+	return Plugin_Handled; // Говорим, что всё ок
 }
 
 /// --- /// --- /// --- ///
 
-Menu BuildMapMenu()
+Menu BuildMapMenu() // Создаём менюшку
 {
 	Menu menu = new Menu(Menu_BuildPerkDeck);
 	for (int o = 0; o < sizeof(perkNames); o++)
@@ -257,9 +257,9 @@ Menu BuildMapMenu()
 	return menu;
 }
 
-public int Menu_BuildPerkDeck(Menu menu, MenuAction action, int client, int item)
+public int Menu_BuildPerkDeck(Menu menu, MenuAction action, int client, int item) // Менюшка ПеркДек Билдера
 {
-	if (action == MenuAction_Select)
+	if (action == MenuAction_Select) // когда жмакнули
 	{
 		/*
 		char info[32];
@@ -267,7 +267,7 @@ public int Menu_BuildPerkDeck(Menu menu, MenuAction action, int client, int item
 		PrintToConsole(client, "You selected item: %d (found? %d info: %s)", item, found, info);
 		ServerCommand("changelevel %s", info); 
 		*/
-		if (pnd_usersPerkDecksC[client] < 3)
+		if (pnd_usersPerkDecksC[client] < 3) // Если абилок набрано < 3
 		{
 			pnd_usersPerkDecks[client][pnd_usersPerkDecksC[client]] = item;
 			pnd_usersPerkDecksC[client]++;
@@ -276,7 +276,7 @@ public int Menu_BuildPerkDeck(Menu menu, MenuAction action, int client, int item
 	}
 }
 
-public Action Comm_BuildPerkDeck(int client, int args)
+public Action Comm_BuildPerkDeck(int client, int args) // Делем/отправляем меню
 { 
 	Menu menu = BuildMapMenu();
 	menu.Display(client, MENU_TIME_FOREVER);
