@@ -114,7 +114,7 @@ char perkNames[22][] = { // Названия
 	"TFCond_KingAura"
 }
 
-bool isAttackingPerk[22] = { // Работает принанесении урона?
+bool isAttackingPerk[22] = { // Работает при нанесении урона?
 	false,
 	false,	
 	false,
@@ -228,7 +228,7 @@ public int perkDeckPanelHandler(Menu menu, MenuAction action, int client, int ab
 public Action perkDeckPanel(int client, int args) // Рисуем менюшку выбора готовых перков
 {
 	Panel panel = new Panel(); // Создаём панель
-	panel.SetTitle("!perks | Choose your perkdeck. | bind pnd_ability_use to activate"); // Заголовок
+	panel.SetTitle("!perks | Choose your perkdeck. | bind pna_ability_use to activate"); // Заголовок
 	panel.DrawItem("rager");
 	panel.DrawItem("runner");
 	panel.DrawItem("spamer");
@@ -253,7 +253,7 @@ Menu BuildMapMenu() // Создаём менюшку
 	{
 		menu.AddItem(perkNames[o], perkNames[o]);
 	}
-	menu.SetTitle("!perks | Choose your perks | bind pnd_ability_use to activate");
+	menu.SetTitle("!perks | Choose your perks | bind pna_ability_use to activate");
 	return menu;
 }
 
@@ -617,6 +617,7 @@ public pna_removecond (int[] conds, int client, int length) //убирает состояния 
 
 public pna_actOnHit (int victim, int target)
 {
+	/*
 	for (int x= 0; x < pnd_usersPerkDecksC; x++)
 	{
 		if (pnd_usersPerkDecks[victim][x] == isAttackingPerk)
@@ -625,10 +626,16 @@ public pna_actOnHit (int victim, int target)
 			pna_addcond (pnd_usersPerkDecks[victim][x], target, 1, 1);
 		}
 	}
+	*/
 }
 
 
-public void check_if_uses_ab(int client, int sesilo
+public void check_if_uses_ab(int client, int sesion)
+{
+	
+}
+
+
 /// --- /// --- /// --- ///
 
 //Далее должны идти массивы с инфой по покупаемым перкам, НЕ обьединяющиеся в ArrayList?
